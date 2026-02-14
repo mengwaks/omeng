@@ -25,8 +25,8 @@ const showHeader = () => {
     if (isAuthenticating && !isConnected) return; 
     console.clear();
     console.log(chalk.red.bold('========================================='));
-    console.log(chalk.white.bold('    🔥 OMENG ONE-SHOT EXPLOSION V8.0 🔥   '));
-    console.log(chalk.yellow('      Group Bridge | Instant Delivery      '));
+    console.log(chalk.white.bold('    ⚡ OMENG SHADOW SYNC V10.0 ⚡    '));
+    console.log(chalk.yellow('      Airplane Mode Hack | Chrome Ubuntu  '));
     console.log(chalk.red.bold('========================================='));
 };
 
@@ -36,22 +36,21 @@ async function connectToWhatsApp() {
     sock = makeWASocket({
         logger: pino({ level: 'silent' }),
         auth: state,
-        browser: Browsers.macOS('Desktop'),
+        // BYPASS: Nyamar jadi Chrome di Ubuntu biar Meta lebih percaya
+        browser: Browsers.ubuntu('Chrome'), 
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 0,
         keepAliveIntervalMs: 10000,
         generateHighQualityLinkPreview: false,
         syncFullHistory: false,
-        markOnlineOnConnect: false // Ghost Mode aktif
+        markOnlineOnConnect: false // Ghost Mode: Gak pamer status Online
     });
 
     if (!sock.authState.creds.me) {
         isAuthenticating = true;
         showHeader();
         console.log(chalk.white('Sesi Baru: Silakan Pilih Login'));
-        console.log('[1] Scan QR Code');
-        console.log('[2] Pairing Code');
-        
+        console.log('[1] Scan QR Code\n[2] Pairing Code');
         const choice = await ask(chalk.cyan('\nPilih (1/2) > '));
 
         if (choice === '1') {
@@ -59,7 +58,6 @@ async function connectToWhatsApp() {
                 const { qr } = update;
                 if (qr) {
                     console.clear();
-                    console.log(chalk.green('SCAN QR INI SEGERA:\n'));
                     qrcode.generate(qr, { small: true });
                 }
             });
@@ -82,26 +80,18 @@ async function connectToWhatsApp() {
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
-        
         if (connection === 'close') {
             isConnected = false;
-            const statusCode = (lastDisconnect.error instanceof Boom) 
-                ? lastDisconnect.error.output.statusCode 
-                : lastDisconnect.error;
-
+            const statusCode = (lastDisconnect.error instanceof Boom) ? lastDisconnect.error.output.statusCode : lastDisconnect.error;
             if (statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 403) {
                 console.log(chalk.red.bold('\n❌ SESI MATI / TERBLOKIR!'));
-                if (fs.existsSync(sessionName)) {
-                    fs.rmSync(sessionName, { recursive: true, force: true });
-                }
+                if (fs.existsSync(sessionName)) fs.rmSync(sessionName, { recursive: true, force: true });
                 process.exit(0);
-            } else {
-                setTimeout(() => connectToWhatsApp(), 5000);
-            }
+            } else { setTimeout(() => connectToWhatsApp(), 5000); }
         } else if (connection === 'open') {
             isConnected = true;
             isAuthenticating = false;
-            console.log(chalk.green('\n✅ STATUS: ONLINE'));
+            console.log(chalk.green('\n✅ STATUS: ONLINE & GHOST MODE'));
             setTimeout(() => MenuUtama(), 2000);
         }
     });
@@ -112,75 +102,41 @@ async function MenuUtama() {
     rl.removeAllListeners('line'); 
     showHeader();
     console.log(chalk.green('✅ Akun: ' + sock.authState.creds.me.id.split(':')[0]));
-    console.log('\n[1] Mulai One-Shot Blast');
-    console.log('[2] Logout & Hapus Sesi');
-    console.log('[3] Keluar Script');
-    
+    console.log('\n[1] Mulai Shadow Sync Blast\n[2] Logout & Hapus Sesi\n[3] Keluar');
     const input = await ask(chalk.cyan('\nPilih Menu > '));
-    
-    if (input === '1') {
-        InputPesan();
-    } else if (input === '2') {
-        if (fs.existsSync(sessionName)) {
-            fs.rmSync(sessionName, { recursive: true, force: true });
-        }
-        process.exit(0);
-    } else if (input === '3') {
-        process.exit(0);
-    } else {
-        MenuUtama();
-    }
+    if (input === '1') InputPesan();
+    else if (input === '2') { if (fs.existsSync(sessionName)) fs.rmSync(sessionName, { recursive: true, force: true }); process.exit(0); }
+    else if (input === '3') process.exit(0);
+    else MenuUtama();
 }
 
 async function InputPesan() {
     showHeader();
-    console.log(chalk.yellow('Langkah 1: TULIS PESAN'));
-    const msg = await ask(chalk.cyan('Isi Pesan: '));
-    if (msg.trim()) {
-        blastData.message = msg;
-        await KonfirmasiPesan();
-    } else {
-        MenuUtama();
-    }
+    const msg = await ask(chalk.yellow('Langkah 1: TULIS PESAN\n') + chalk.cyan('Isi: '));
+    if (msg.trim()) { blastData.message = msg; await KonfirmasiPesan(); }
+    else MenuUtama();
 }
 
 async function KonfirmasiPesan() {
     showHeader();
-    console.log(chalk.white('--- REVIEW PESAN ---'));
-    console.log(chalk.cyan(`"${blastData.message}"`));
-    console.log(chalk.white('--------------------'));
-    console.log(chalk.yellow('\nKetik "EDIT" untuk benerin'));
-    console.log(chalk.green('Ketik "GAS" untuk lanjut'));
-
-    const action = await ask(chalk.bold('\nPilih (EDIT/GAS) > '));
-
-    if (action.toUpperCase() === 'EDIT') {
-        await InputPesan();
-    } else if (action.toUpperCase() === 'GAS') {
-        InputNomor();
-    } else {
-        await KonfirmasiPesan();
-    }
+    console.log(chalk.white('--- REVIEW PESAN ---\n') + chalk.cyan(`"${blastData.message}"`) + chalk.white('\n--------------------'));
+    const action = await ask(chalk.yellow('\nKetik "EDIT" benerin, atau "GAS" lanjut\nPilih > '));
+    if (action.toUpperCase() === 'EDIT') await InputPesan();
+    else if (action.toUpperCase() === 'GAS') InputNomor();
+    else await KonfirmasiPesan();
 }
 
 function InputNomor() {
     rl.removeAllListeners('line');
     blastData.numbers = [];
     showHeader();
-    console.log(chalk.yellow('Langkah 2: PASTE NOMOR MEMBER'));
-    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk MELEDAKKAN!'));
-    
+    console.log(chalk.yellow('Langkah 2: PASTE NOMOR MEMBER\n') + chalk.gray('Ketik "GAS" untuk JEBRET!'));
     rl.on('line', (line) => {
         const input = line.trim();
-        if (input.toUpperCase() === 'GAS') {
-            rl.removeAllListeners('line');
-            Eksekusi();
-        } else {
+        if (input.toUpperCase() === 'GAS') { rl.removeAllListeners('line'); Eksekusi(); }
+        else {
             const n = input.replace(/[^0-9]/g, '');
-            if (n.length > 5) {
-                blastData.numbers.push(n);
-                process.stdout.write(chalk.gray('.'));
-            }
+            if (n.length > 5) { blastData.numbers.push(n); process.stdout.write(chalk.gray('.')); }
         }
     });
 }
@@ -189,40 +145,52 @@ async function Eksekusi() {
     if (blastData.numbers.length === 0) return MenuUtama();
     showHeader();
     
-    console.log(chalk.red.bold(`\n💥 PERSIAPAN MELEDAKKAN GRUP...`));
-    for (let i = 5; i > 0; i--) {
-        console.log(chalk.yellow(`   Detonasi dalam: ${i}...`));
-        await delay(1000);
+    console.log(chalk.red.bold(`\n📡 MODE SHADOW SYNC: AKTIF 📡`));
+    console.log(chalk.yellow(`🚀 Priming metadata untuk ${blastData.numbers.length} nomor...`));
+
+    const targets = blastData.numbers;
+    const antrean = [];
+
+    // --- LANGKAH 1: PRIMING (Simulasi Buka Chat 1 per 1) ---
+    for (let i = 0; i < targets.length; i++) {
+        const jid = targets[i] + '@s.whatsapp.net';
+        const randomID = Math.random().toString(36).substring(7);
+        
+        antrean.push({ jid, text: `${blastData.message}\n\n_${randomID}_` });
+        
+        // Kirim status 'ngetik' ke tiap nomor (Tanpa nunggu/await)
+        sock.sendPresenceUpdate('composing', jid); 
+        process.stdout.write(chalk.gray('.'));
     }
 
-    console.log(chalk.red.bold(`\n🔥 FIRE! SEDANG MEMBUAT JEMBATAN GRUP...`));
+    console.log(chalk.green(`\n\n✅ ${antrean.length} Paket sudah di-buffer di memori.`));
+    console.log(chalk.red.bold(`💥 JEBRET DALAM 3 DETIK...`));
+    await delay(3000);
 
-    const targets = blastData.numbers.map(n => n + '@s.whatsapp.net');
-    const randomName = "INFO PENTING " + Math.random().toString(36).substring(7).toUpperCase();
+    // --- LANGKAH 2: THE MASSIVE FLUSH ---
+    console.log(chalk.red.bold(`\n🔥 FIRE! SINKRONISASI MASSAL DIMULAI! 🔥`));
 
-    try {
-        console.log(chalk.cyan(`\n[1/2] Menarik ${targets.length} nomor ke dalam grup sekaligus...`));
-        
-        // SATU REQUEST UNTUK SEMUA MEMBER
-        const group = await sock.groupCreate(randomName, targets);
-        
-        console.log(chalk.green(`✅ Grup Berhasil: ${group.id}`));
-        console.log(chalk.cyan(`[2/2] Melepaskan pesan toa ke dalam grup...`));
+    let sukses = 0;
+    let gagal = 0;
 
-        // Kirim pesan UTAMA
-        await sock.sendMessage(group.id, { text: blastData.message });
+    const tembakan = antrean.map((item) => {
+        return sock.sendMessage(item.jid, { text: item.text })
+            .then(() => { sukses++; })
+            .catch(() => { gagal++; });
+    });
 
-        console.log(chalk.bold.bgGreen.black('\n 💥 BOOM! PESAN SUDAH DITARUH DI GRUP! '));
-        console.log(chalk.white('Target sudah dapet notifikasi. Cek HP lo!'));
+    // Simulasi 'Nyalain Data' - Semua paket dilepas serentak
+    Promise.all(tembakan); 
 
-    } catch (e) {
-        console.log(chalk.red(`\n❌ EKSEKUSI GAGAL: ${e.message}`));
-        console.log(chalk.gray(`Penyebab: Akun terlalu baru atau Meta membatasi 'Group Create'.`));
-    }
+    console.log(chalk.bold.bgGreen.black('\n ✅ SEMUA DATA SUDAH DIPOMPA KE SERVER! '));
+    await delay(5000);
 
-    console.log(chalk.gray('\nTekan Enter buat balik ke menu.'));
+    console.log(chalk.white(`==============================`));
+    console.log(chalk.green(` LOLOS GERBANG : ${sukses} Nomor`));
+    console.log(chalk.red(` GAGAL / BLOCK  : ${gagal} Nomor`));
+    console.log(chalk.white(`==============================`));
+    
     rl.once('line', () => MenuUtama());
 }
 
-// Jalankan sistem
 connectToWhatsApp();
