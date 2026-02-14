@@ -1,6 +1,7 @@
 {
   "name": "omeng",
   "version": "1.0.0",
+  "description": "WhatsApp Blaster Ultimate",
   "main": "index.js",
   "dependencies": {
     "@whiskeysockets/baileys": "latest",
