@@ -18,11 +18,12 @@ const rl = readline.createInterface({
 
 let blastData = { message: '', numbers: [] };
 
-// Helper Tanya (Gue pake ini buat menu biar gak stuck)
+// Helper Tanya
 const ask = (query) => new Promise((resolve) => rl.question(query, resolve));
 
 const showHeader = () => {
-    if (isAuthenticating) return; 
+    // Header cuma muncul kalau gak lagi nunggu QR/Pairing
+    if (isAuthenticating && !isConnected) return; 
     console.clear();
     console.log(chalk.green.bold('========================================='));
     console.log(chalk.cyan.bold('    ⚡ OMENG ULTIMATE BLASTER V5 ⚡    '));
@@ -38,42 +39,44 @@ async function connectToWhatsApp() {
         auth: state,
         browser: Browsers.macOS('Chrome'),
         connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 15000,
+        printQRInTerminal: false, // Kita handle manual biar gak berantakan
         syncFullHistory: false
     });
 
+    // --- PROSES AUTHENTICATION (Hanya jika belum login) ---
     if (!sock.authState.creds.me) {
         isAuthenticating = true;
         showHeader();
-        console.log(chalk.white('Pilih Metode Login:'));
-        console.log('[1] Scan QR Code (Manual)');
-        console.log('[2] Pairing Code (Nomor HP)');
+        console.log(chalk.white('Silakan Login Terlebih Dahulu:'));
+        console.log('[1] Scan QR Code');
+        console.log('[2] Pairing Code');
         
         const choice = await ask(chalk.cyan('\nPilih (1/2) > '));
 
         if (choice === '1') {
-            console.log(chalk.yellow('\nMenunggu QR Code...'));
-            sock.ev.on('connection.update', (update) => {
+            console.log(chalk.yellow('\nMenunggu QR Code dari server...'));
+            // Listener QR khusus saat login
+            const qrListener = (update) => {
                 const { qr } = update;
                 if (qr) {
                     console.clear();
-                    console.log(chalk.green('SCAN QR INI DENGAN WHATSAPP KAMU:\n'));
+                    console.log(chalk.green('SCAN QR INI DENGAN WA KAMU:\n'));
                     qrcode.generate(qr, { small: true });
-                    console.log(chalk.gray('\nQR akan kadaluarsa dlm 30 detik.'));
                 }
-            });
+            };
+            sock.ev.on('connection.update', qrListener);
         } else {
-            const num = await ask(chalk.yellow('\nMasukkan Nomor WA (cth: 628xxx): '));
+            const num = await ask(chalk.yellow('\nMasukkan Nomor WA (628xxx): '));
             const cleanNum = num.replace(/[^0-9]/g, '');
             if (cleanNum) {
-                console.log(chalk.gray('\nStabilitasi koneksi... (Tunggu 10 detik)'));
+                console.log(chalk.gray('\nMengambil kode... (Tunggu 10 detik)'));
                 await delay(10000); 
                 try {
                     let code = await sock.requestPairingCode(cleanNum);
                     code = code?.match(/.{1,4}/g)?.join("-") || code;
-                    console.log(chalk.green.bold('\n✅ KODE PAIRING KAMU: ') + chalk.bgGreen.black.bold(` ${code} `));
+                    console.log(chalk.green.bold('\n✅ KODE PAIRING: ') + chalk.bgGreen.black.bold(` ${code} `));
                 } catch (e) {
-                    console.log(chalk.red(`\n❌ Gagal: ${e.message}`));
+                    console.log(chalk.red(`\n❌ Error: ${e.message}`));
                     process.exit(0);
                 }
             }
@@ -84,23 +87,30 @@ async function connectToWhatsApp() {
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
+        
         if (connection === 'close') {
             isConnected = false;
             const reason = lastDisconnect?.error?.output?.statusCode;
-            if (reason !== DisconnectReason.loggedOut) connectToWhatsApp();
-            else process.exit(0);
+            if (reason !== DisconnectReason.loggedOut) {
+                // Jangan panggil MenuUtama pas disconnect!
+                connectToWhatsApp();
+            } else {
+                console.log(chalk.red('\nSesi Logout. Hapus folder auth_session!'));
+                process.exit(0);
+            }
         } else if (connection === 'open') {
             isConnected = true;
             isAuthenticating = false;
-            console.log(chalk.green('\n✅ BERHASIL LOGIN!'));
+            console.log(chalk.green('\n✅ TERHUBUNG! Mantap, Meng.'));
+            // Kasih delay biar gak langsung ketimpa header menu
             setTimeout(() => MenuUtama(), 2000);
         }
     });
 }
 
 async function MenuUtama() {
-    if (!isConnected || isAuthenticating) return;
-    rl.removeAllListeners('line'); // Bersihin sisa enter
+    if (!isConnected) return;
+    rl.removeAllListeners('line'); 
     showHeader();
     console.log(chalk.green('✅ Status: ONLINE'));
     console.log('\n[1] Mulai Blast Baru');
@@ -109,11 +119,11 @@ async function MenuUtama() {
     const input = await ask(chalk.cyan('\nPilih Menu > '));
     
     if (input === '1') {
-        await InputPesan();
+        InputPesan();
     } else if (input === '2') {
         process.exit(0);
     } else {
-        MenuUtama(); // Kalo salah input balik lagi
+        MenuUtama();
     }
 }
 
@@ -124,23 +134,22 @@ async function InputPesan() {
     
     if (msg.trim()) {
         blastData.message = msg;
-        await InputNomor();
+        InputNomor();
     } else {
-        console.log(chalk.red('Pesan tidak boleh kosong!'));
-        await delay(2000);
+        console.log(chalk.red('Pesan kosong!'));
+        await delay(1500);
         MenuUtama();
     }
 }
 
-async function InputNomor() {
+function InputNomor() {
     rl.removeAllListeners('line');
     blastData.numbers = [];
     showHeader();
     console.log(chalk.white(`Pesan: "${chalk.cyan(blastData.message)}"`));
     console.log(chalk.yellow('\nLangkah 2/2: PASTE NOMOR'));
-    console.log(chalk.gray('Ketik "GAS" jika sudah selesai menempel nomor.'));
+    console.log(chalk.gray('Ketik "GAS" jika sudah selesai.'));
     
-    // Pake listener line khusus buat paste nomor massal
     rl.on('line', (line) => {
         const input = line.trim();
         if (input.toUpperCase() === 'GAS') {
@@ -157,13 +166,9 @@ async function InputNomor() {
 }
 
 async function Eksekusi() {
-    if (blastData.numbers.length === 0) {
-        console.log(chalk.red('\nNomor kosong!'));
-        await delay(2000);
-        return MenuUtama();
-    }
-
-    console.log(chalk.yellow(`\n\n🔄 Meluncur ke ${blastData.numbers.length} nomor...`));
+    if (blastData.numbers.length === 0) return MenuUtama();
+    showHeader();
+    console.log(chalk.yellow(`\n🔄 Meluncur ke ${blastData.numbers.length} nomor...`));
     
     for (const num of blastData.numbers) {
         try {
@@ -179,5 +184,5 @@ async function Eksekusi() {
     rl.once('line', () => MenuUtama());
 }
 
-console.clear();
+// Start
 connectToWhatsApp();
