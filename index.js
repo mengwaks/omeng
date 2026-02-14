@@ -4,6 +4,7 @@ const readline = require('readline');
 const chalk = require('chalk');
 const qrcode = require('qrcode-terminal');
 const { Boom } = require('@hapi/boom');
+const fs = require('fs'); // BUAT HAPUS FOLDER OTOMATIS
 
 const sessionName = 'auth_session';
 let sock;
@@ -24,8 +25,8 @@ const showHeader = () => {
     if (isAuthenticating && !isConnected) return; 
     console.clear();
     console.log(chalk.green.bold('========================================='));
-    console.log(chalk.cyan.bold('    ⚡ OMENG ULTIMATE BLASTER V5.2 ⚡    '));
-    console.log(chalk.yellow('      Shotgun Burst | Edit & Confirm      '));
+    console.log(chalk.cyan.bold('    ⚡ OMENG ULTIMATE BLASTER V6.0 ⚡    '));
+    console.log(chalk.yellow('      Brutal Shotgun | Auto-Cleanup       '));
     console.log(chalk.green.bold('========================================='));
 };
 
@@ -91,11 +92,20 @@ async function connectToWhatsApp() {
 
             console.log(chalk.yellow(`\n[!] Koneksi Terputus (Code: ${statusCode})`));
 
-            if (statusCode !== DisconnectReason.loggedOut) {
-                setTimeout(() => connectToWhatsApp(), 5000);
-            } else {
-                console.log(chalk.red('\n❌ SESI LOGOUT. Scan ulang!'));
+            // LOGIC AUTO-REMOVE FOLDER SESI (Request Lu)
+            if (statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 403) {
+                console.log(chalk.red.bold('\n❌ SESI MATI / TERBLOKIR!'));
+                console.log(chalk.white('MENGHAPUS FOLDER AUTH_SESSION OTOMATIS...'));
+                
+                if (fs.existsSync(sessionName)) {
+                    fs.rmSync(sessionName, { recursive: true, force: true });
+                }
+                
+                console.log(chalk.green('Sesi sudah dibersihkan. Silakan jalankan ulang script untuk QR baru.'));
                 process.exit(0);
+            } else {
+                // Reconnect biasa kalau cuma gangguan sinyal
+                setTimeout(() => connectToWhatsApp(), 5000);
             }
         } else if (connection === 'open') {
             isConnected = true;
@@ -112,7 +122,7 @@ async function MenuUtama() {
     showHeader();
     console.log(chalk.green('✅ Akun: ' + sock.authState.creds.me.id.split(':')[0]));
     console.log('\n[1] Mulai Blast Baru');
-    console.log('[2] Logout & Hapus Sesi');
+    console.log('[2] Logout & Bersihkan Sesi');
     console.log('[3] Keluar Script');
     
     const input = await ask(chalk.cyan('\nPilih Menu > '));
@@ -120,7 +130,9 @@ async function MenuUtama() {
     if (input === '1') {
         InputPesan();
     } else if (input === '2') {
-        await sock.logout();
+        if (fs.existsSync(sessionName)) {
+            fs.rmSync(sessionName, { recursive: true, force: true });
+        }
         process.exit(0);
     } else if (input === '3') {
         process.exit(0);
@@ -129,13 +141,10 @@ async function MenuUtama() {
     }
 }
 
-// --- FUNGSI UPDATE SESUAI REQUEST LU ---
-
 async function InputPesan() {
     showHeader();
     console.log(chalk.yellow('Langkah 1: TULIS PESAN'));
     const msg = await ask(chalk.cyan('Isi Pesan: '));
-    
     if (msg.trim()) {
         blastData.message = msg;
         await KonfirmasiPesan();
@@ -155,12 +164,10 @@ async function KonfirmasiPesan() {
     const action = await ask(chalk.bold('\nPilih (EDIT/GAS) > '));
 
     if (action.toUpperCase() === 'EDIT') {
-        await InputPesan(); // Balik ke nanya pesan
+        await InputPesan();
     } else if (action.toUpperCase() === 'GAS') {
-        InputNomor(); // Lanjut ke step input nomor
+        InputNomor();
     } else {
-        console.log(chalk.red('Perintah salah! Pilih EDIT atau GAS.'));
-        await delay(1500);
         await KonfirmasiPesan();
     }
 }
@@ -171,7 +178,7 @@ function InputNomor() {
     showHeader();
     console.log(chalk.white(`Pesan: "${chalk.cyan(blastData.message)}"`));
     console.log(chalk.yellow('\nLangkah 2: PASTE NOMOR MEMBER'));
-    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk BURST!'));
+    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk BRUTAL BURST!'));
     
     rl.on('line', (line) => {
         const input = line.trim();
@@ -192,31 +199,36 @@ async function Eksekusi() {
     if (blastData.numbers.length === 0) return MenuUtama();
     showHeader();
     
-    console.log(chalk.red.bold(`\n💥 SHOTGUN BURST MODE: ON 💥`));
+    console.log(chalk.red.bold(`\n💥 MODE BRUTAL SHOTGUN: ON 💥`));
     console.log(chalk.yellow(`🚀 Menembak ${blastData.numbers.length} nomor secara SERENTAK...`));
 
-    const pesan = blastData.message;
+    let sukses = 0;
+    let gagal = 0;
     const targets = blastData.numbers;
 
-    // SHOTGUN LOGIC (Parallel/Serentak 100%)
-    const tembakan = targets.map((num) => {
-        // Tembak tanpa 'await', biarkan semua peluru lepas barengan
-        return sock.sendMessage(num + '@s.whatsapp.net', { text: pesan })
-            .then(() => {
-                process.stdout.write(chalk.green('🎯 ')); 
-            })
-            .catch(() => {
-                process.stdout.write(chalk.red('💨 '));
-            });
+    // BRUTAL LOGIC: Parallel tanpa antrean
+    const tembakan = targets.map(async (num) => {
+        try {
+            // Gunakan return tanpa await di depan map biar dia lari serentak
+            await sock.sendMessage(num + '@s.whatsapp.net', { text: blastData.message });
+            sukses++;
+            process.stdout.write(chalk.green('🎯 ')); 
+        } catch (e) {
+            gagal++;
+            process.stdout.write(chalk.red('💨 '));
+        }
     });
 
-    // Jalankan semua tembakan sekaligus dalam milidetik
-    Promise.all(tembakan); 
+    // Jalankan semua secara paralel
+    await Promise.all(tembakan); 
 
-    console.log(chalk.bold.bgGreen.black('\n\n ✅ SHOTGUN BERHASIL DILEPAS! '));
-    console.log(chalk.white(`Semua ${targets.length} peluru sudah keluar dari script secara serentak.`));
+    console.log(chalk.bold.bgGreen.black('\n\n ✅ SHOTGUN SELESAI DILEPAS! '));
+    console.log(chalk.white(`==============================`));
+    console.log(chalk.green(` BERHASIL : ${sukses} Nomor`));
+    console.log(chalk.red(` GAGAL    : ${gagal} Nomor`));
+    console.log(chalk.white(`==============================`));
     
-    console.log(chalk.gray('\nTekan Enter buat balik ke menu utama.'));
+    console.log(chalk.gray('\nTekan Enter buat balik ke menu.'));
     rl.once('line', () => MenuUtama());
 }
 
