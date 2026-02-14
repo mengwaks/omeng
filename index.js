@@ -4,7 +4,7 @@ const readline = require('readline');
 const chalk = require('chalk');
 const qrcode = require('qrcode-terminal');
 const { Boom } = require('@hapi/boom');
-const fs = require('fs'); // BUAT HAPUS FOLDER OTOMATIS
+const fs = require('fs'); 
 
 const sessionName = 'auth_session';
 let sock;
@@ -25,8 +25,8 @@ const showHeader = () => {
     if (isAuthenticating && !isConnected) return; 
     console.clear();
     console.log(chalk.green.bold('========================================='));
-    console.log(chalk.cyan.bold('    ⚡ OMENG ULTIMATE BLASTER V6.0 ⚡    '));
-    console.log(chalk.yellow('      Brutal Shotgun | Auto-Cleanup       '));
+    console.log(chalk.cyan.bold('    ⚡ OMENG ULTIMATE BLASTER V6.1 ⚡    '));
+    console.log(chalk.yellow('      Extreme Burst | Auto-Cleanup       '));
     console.log(chalk.green.bold('========================================='));
 };
 
@@ -40,7 +40,7 @@ async function connectToWhatsApp() {
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 0,
         keepAliveIntervalMs: 10000,
-        generateHighQualityLinkPreview: true,
+        generateHighQualityLinkPreview: false, // Dimatikan biar makin kenceng kirimnya
         syncFullHistory: false,
         markOnlineOnConnect: true
     });
@@ -90,21 +90,13 @@ async function connectToWhatsApp() {
                 ? lastDisconnect.error.output.statusCode 
                 : lastDisconnect.error;
 
-            console.log(chalk.yellow(`\n[!] Koneksi Terputus (Code: ${statusCode})`));
-
-            // LOGIC AUTO-REMOVE FOLDER SESI (Request Lu)
             if (statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 403) {
                 console.log(chalk.red.bold('\n❌ SESI MATI / TERBLOKIR!'));
-                console.log(chalk.white('MENGHAPUS FOLDER AUTH_SESSION OTOMATIS...'));
-                
                 if (fs.existsSync(sessionName)) {
                     fs.rmSync(sessionName, { recursive: true, force: true });
                 }
-                
-                console.log(chalk.green('Sesi sudah dibersihkan. Silakan jalankan ulang script untuk QR baru.'));
                 process.exit(0);
             } else {
-                // Reconnect biasa kalau cuma gangguan sinyal
                 setTimeout(() => connectToWhatsApp(), 5000);
             }
         } else if (connection === 'open') {
@@ -178,7 +170,7 @@ function InputNomor() {
     showHeader();
     console.log(chalk.white(`Pesan: "${chalk.cyan(blastData.message)}"`));
     console.log(chalk.yellow('\nLangkah 2: PASTE NOMOR MEMBER'));
-    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk BRUTAL BURST!'));
+    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk EXTREME BURST!'));
     
     rl.on('line', (line) => {
         const input = line.trim();
@@ -199,36 +191,44 @@ async function Eksekusi() {
     if (blastData.numbers.length === 0) return MenuUtama();
     showHeader();
     
-    console.log(chalk.red.bold(`\n💥 MODE BRUTAL SHOTGUN: ON 💥`));
-    console.log(chalk.yellow(`🚀 Menembak ${blastData.numbers.length} nomor secara SERENTAK...`));
+    // COUNTDOWN SEBELUM TEMBAK
+    console.log(chalk.red.bold(`\n💥 PERSIAPAN SHOTGUN...`));
+    for (let i = 5; i > 0; i--) {
+        console.log(chalk.yellow(`   Menembak dalam: ${i}...`));
+        await delay(1000);
+    }
+
+    console.log(chalk.red.bold(`\n🔥 DORRR! EXTREME BURST RELEASED! 🔥`));
 
     let sukses = 0;
     let gagal = 0;
     const targets = blastData.numbers;
+    const pesan = blastData.message;
 
-    // BRUTAL LOGIC: Parallel tanpa antrean
-    const tembakan = targets.map(async (num) => {
-        try {
-            // Gunakan return tanpa await di depan map biar dia lari serentak
-            await sock.sendMessage(num + '@s.whatsapp.net', { text: blastData.message });
-            sukses++;
-            process.stdout.write(chalk.green('🎯 ')); 
-        } catch (e) {
-            gagal++;
-            process.stdout.write(chalk.red('💨 '));
-        }
+    // TRUE BURST LOGIC
+    // Kita langsung push semua ke socket tanpa jeda proses logging di tengah
+    const tembakan = targets.map((num) => {
+        return sock.sendMessage(num + '@s.whatsapp.net', { text: pesan })
+            .then(() => { 
+                sukses++; 
+                process.stdout.write(chalk.green('🎯')); 
+            })
+            .catch(() => { 
+                gagal++; 
+                process.stdout.write(chalk.red('💨')); 
+            });
     });
 
-    // Jalankan semua secara paralel
+    // Jalankan semua sekaligus
     await Promise.all(tembakan); 
 
-    console.log(chalk.bold.bgGreen.black('\n\n ✅ SHOTGUN SELESAI DILEPAS! '));
+    console.log(chalk.bold.bgGreen.black('\n\n ✅ BURST SELESAI! '));
     console.log(chalk.white(`==============================`));
     console.log(chalk.green(` BERHASIL : ${sukses} Nomor`));
     console.log(chalk.red(` GAGAL    : ${gagal} Nomor`));
     console.log(chalk.white(`==============================`));
     
-    console.log(chalk.gray('\nTekan Enter buat balik ke menu.'));
+    console.log(chalk.gray('\nTekan Enter balik ke menu.'));
     rl.once('line', () => MenuUtama());
 }
 
