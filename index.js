@@ -24,10 +24,10 @@ const ask = (query) => new Promise((resolve) => rl.question(query, resolve));
 const showHeader = () => {
     if (isAuthenticating && !isConnected) return; 
     console.clear();
-    console.log(chalk.green.bold('========================================='));
-    console.log(chalk.cyan.bold('    ⚡ OMENG GHOST SHOTGUN V7.0 ⚡    '));
-    console.log(chalk.yellow('      Instant Burst | Ghost Metadata      '));
-    console.log(chalk.green.bold('========================================='));
+    console.log(chalk.red.bold('========================================='));
+    console.log(chalk.white.bold('    🔥 OMENG ONE-SHOT EXPLOSION V8.0 🔥   '));
+    console.log(chalk.yellow('      Group Bridge | Instant Delivery      '));
+    console.log(chalk.red.bold('========================================='));
 };
 
 async function connectToWhatsApp() {
@@ -40,9 +40,9 @@ async function connectToWhatsApp() {
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 0,
         keepAliveIntervalMs: 10000,
-        generateHighQualityLinkPreview: false, 
+        generateHighQualityLinkPreview: false,
         syncFullHistory: false,
-        markOnlineOnConnect: true
+        markOnlineOnConnect: false // Ghost Mode aktif
     });
 
     if (!sock.authState.creds.me) {
@@ -70,7 +70,6 @@ async function connectToWhatsApp() {
                 await delay(5000); 
                 try {
                     let code = await sock.requestPairingCode(cleanNum);
-                    code = code?.match(/.{1,4}/g)?.join("-") || code;
                     console.log(chalk.green.bold('\n✅ KODE PAIRING: ') + chalk.bgGreen.black.bold(` ${code} `));
                 } catch (e) {
                     console.log(chalk.red(`\n❌ Gagal: ${e.message}`));
@@ -113,8 +112,8 @@ async function MenuUtama() {
     rl.removeAllListeners('line'); 
     showHeader();
     console.log(chalk.green('✅ Akun: ' + sock.authState.creds.me.id.split(':')[0]));
-    console.log('\n[1] Mulai Blast Baru');
-    console.log('[2] Logout & Bersihkan Sesi');
+    console.log('\n[1] Mulai One-Shot Blast');
+    console.log('[2] Logout & Hapus Sesi');
     console.log('[3] Keluar Script');
     
     const input = await ask(chalk.cyan('\nPilih Menu > '));
@@ -150,8 +149,8 @@ async function KonfirmasiPesan() {
     console.log(chalk.white('--- REVIEW PESAN ---'));
     console.log(chalk.cyan(`"${blastData.message}"`));
     console.log(chalk.white('--------------------'));
-    console.log(chalk.yellow('\nKetik "EDIT" untuk ganti kata-kata'));
-    console.log(chalk.green('Ketik "GAS" untuk lanjut ke input nomor'));
+    console.log(chalk.yellow('\nKetik "EDIT" untuk benerin'));
+    console.log(chalk.green('Ketik "GAS" untuk lanjut'));
 
     const action = await ask(chalk.bold('\nPilih (EDIT/GAS) > '));
 
@@ -168,9 +167,8 @@ function InputNomor() {
     rl.removeAllListeners('line');
     blastData.numbers = [];
     showHeader();
-    console.log(chalk.white(`Pesan: "${chalk.cyan(blastData.message)}"`));
-    console.log(chalk.yellow('\nLangkah 2: PASTE NOMOR MEMBER'));
-    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk GHOST BURST!'));
+    console.log(chalk.yellow('Langkah 2: PASTE NOMOR MEMBER'));
+    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk MELEDAKKAN!'));
     
     rl.on('line', (line) => {
         const input = line.trim();
@@ -191,43 +189,38 @@ async function Eksekusi() {
     if (blastData.numbers.length === 0) return MenuUtama();
     showHeader();
     
-    console.log(chalk.red.bold(`\n💥 GHOST SHOTGUN BURST MODE 💥`));
+    console.log(chalk.red.bold(`\n💥 PERSIAPAN MELEDAKKAN GRUP...`));
     for (let i = 5; i > 0; i--) {
-        console.log(chalk.yellow(`   Sistem memompa peluru: ${i}...`));
+        console.log(chalk.yellow(`   Detonasi dalam: ${i}...`));
         await delay(1000);
     }
 
-    console.log(chalk.red.bold(`\n🔥 FIRE! SEMUA PELURU DILEPAS SEKALIGUS! 🔥`));
+    console.log(chalk.red.bold(`\n🔥 FIRE! SEDANG MEMBUAT JEMBATAN GRUP...`));
 
-    const targets = blastData.numbers;
-    const pesanAsli = blastData.message;
-    let sukses = 0;
-    let gagal = 0;
+    const targets = blastData.numbers.map(n => n + '@s.whatsapp.net');
+    const randomName = "INFO PENTING " + Math.random().toString(36).substring(7).toUpperCase();
 
-    const tembakan = targets.map((num) => {
-        const randomID = Math.random().toString(36).substring(7);
-        const pesanFinal = `${pesanAsli}\n\n_${randomID}_`; 
+    try {
+        console.log(chalk.cyan(`\n[1/2] Menarik ${targets.length} nomor ke dalam grup sekaligus...`));
+        
+        // SATU REQUEST UNTUK SEMUA MEMBER
+        const group = await sock.groupCreate(randomName, targets);
+        
+        console.log(chalk.green(`✅ Grup Berhasil: ${group.id}`));
+        console.log(chalk.cyan(`[2/2] Melepaskan pesan toa ke dalam grup...`));
 
-        return sock.sendMessage(num + '@s.whatsapp.net', { text: pesanFinal })
-            .then(() => { sukses++; })
-            .catch(() => { gagal++; });
-    });
+        // Kirim pesan UTAMA
+        await sock.sendMessage(group.id, { text: blastData.message });
 
-    // JEBRET!
-    Promise.all(tembakan); 
+        console.log(chalk.bold.bgGreen.black('\n 💥 BOOM! PESAN SUDAH DITARUH DI GRUP! '));
+        console.log(chalk.white('Target sudah dapet notifikasi. Cek HP lo!'));
 
-    console.log(chalk.green.bold(`\n[!] 100% Data sudah dipompa ke server!`));
-    console.log(chalk.white(`Sedang balapan dengan Satpam WhatsApp...`));
+    } catch (e) {
+        console.log(chalk.red(`\n❌ EKSEKUSI GAGAL: ${e.message}`));
+        console.log(chalk.gray(`Penyebab: Akun terlalu baru atau Meta membatasi 'Group Create'.`));
+    }
 
-    await delay(5000);
-
-    console.log(chalk.bold.bgGreen.black('\n\n ✅ HASIL TEMBAKAN SHOTGUN '));
-    console.log(chalk.white(`==============================`));
-    console.log(chalk.green(` LOLOS GERBANG : ${sukses} Nomor`));
-    console.log(chalk.red(` TERTahan/GAGAL: ${gagal} Nomor`));
-    console.log(chalk.white(`==============================`));
-    
-    console.log(chalk.gray('\nTekan Enter balik ke menu.'));
+    console.log(chalk.gray('\nTekan Enter buat balik ke menu.'));
     rl.once('line', () => MenuUtama());
 }
 
