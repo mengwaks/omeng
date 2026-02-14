@@ -24,8 +24,8 @@ const showHeader = () => {
     if (isAuthenticating && !isConnected) return; 
     console.clear();
     console.log(chalk.green.bold('========================================='));
-    console.log(chalk.cyan.bold('    ⚡ OMENG ULTIMATE BLASTER V5.1 ⚡   '));
-    console.log(chalk.yellow('      Anti-Logout | Auto-Reconnect       '));
+    console.log(chalk.cyan.bold('    ⚡ OMENG ULTIMATE BLASTER V5.2 ⚡    '));
+    console.log(chalk.yellow('      Shotgun Burst | Edit & Confirm      '));
     console.log(chalk.green.bold('========================================='));
 };
 
@@ -35,7 +35,7 @@ async function connectToWhatsApp() {
     sock = makeWASocket({
         logger: pino({ level: 'silent' }),
         auth: state,
-        browser: Browsers.macOS('Desktop'), // Nyamar jadi Desktop biar lebih stabil
+        browser: Browsers.macOS('Desktop'),
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 0,
         keepAliveIntervalMs: 10000,
@@ -44,7 +44,6 @@ async function connectToWhatsApp() {
         markOnlineOnConnect: true
     });
 
-    // --- PROSES LOGIN ---
     if (!sock.authState.creds.me) {
         isAuthenticating = true;
         showHeader();
@@ -79,7 +78,6 @@ async function connectToWhatsApp() {
         }
     }
 
-    // WAJIB: Simpan tiap ada update kredensial
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
@@ -87,26 +85,22 @@ async function connectToWhatsApp() {
         
         if (connection === 'close') {
             isConnected = false;
-            // Ambil kode error kenapa dia putus
             const statusCode = (lastDisconnect.error instanceof Boom) 
                 ? lastDisconnect.error.output.statusCode 
                 : lastDisconnect.error;
 
             console.log(chalk.yellow(`\n[!] Koneksi Terputus (Code: ${statusCode})`));
 
-            // Logic Reconnect Otomatis
             if (statusCode !== DisconnectReason.loggedOut) {
-                console.log(chalk.cyan('🔄 Mencoba menyambung ulang dalam 5 detik...'));
                 setTimeout(() => connectToWhatsApp(), 5000);
             } else {
-                console.log(chalk.red('\n❌ SESI DIHAPUS OLEH WA. Scan ulang, Meng!'));
-                // Jangan hapus manual, biar user yang rm -rf sendiri kalau perlu
+                console.log(chalk.red('\n❌ SESI LOGOUT. Scan ulang!'));
                 process.exit(0);
             }
         } else if (connection === 'open') {
             isConnected = true;
             isAuthenticating = false;
-            console.log(chalk.green('\n✅ STATUS: ONLINE & STABIL'));
+            console.log(chalk.green('\n✅ STATUS: ONLINE'));
             setTimeout(() => MenuUtama(), 2000);
         }
     });
@@ -126,7 +120,6 @@ async function MenuUtama() {
     if (input === '1') {
         InputPesan();
     } else if (input === '2') {
-        console.log(chalk.red('Menghapus sesi...'));
         await sock.logout();
         process.exit(0);
     } else if (input === '3') {
@@ -136,15 +129,39 @@ async function MenuUtama() {
     }
 }
 
+// --- FUNGSI UPDATE SESUAI REQUEST LU ---
+
 async function InputPesan() {
     showHeader();
-    console.log(chalk.yellow('Langkah 1/2: TULIS PESAN'));
+    console.log(chalk.yellow('Langkah 1: TULIS PESAN'));
     const msg = await ask(chalk.cyan('Isi Pesan: '));
+    
     if (msg.trim()) {
         blastData.message = msg;
-        InputNomor();
+        await KonfirmasiPesan();
     } else {
         MenuUtama();
+    }
+}
+
+async function KonfirmasiPesan() {
+    showHeader();
+    console.log(chalk.white('--- REVIEW PESAN ---'));
+    console.log(chalk.cyan(`"${blastData.message}"`));
+    console.log(chalk.white('--------------------'));
+    console.log(chalk.yellow('\nKetik "EDIT" untuk ganti kata-kata'));
+    console.log(chalk.green('Ketik "GAS" untuk lanjut ke input nomor'));
+
+    const action = await ask(chalk.bold('\nPilih (EDIT/GAS) > '));
+
+    if (action.toUpperCase() === 'EDIT') {
+        await InputPesan(); // Balik ke nanya pesan
+    } else if (action.toUpperCase() === 'GAS') {
+        InputNomor(); // Lanjut ke step input nomor
+    } else {
+        console.log(chalk.red('Perintah salah! Pilih EDIT atau GAS.'));
+        await delay(1500);
+        await KonfirmasiPesan();
     }
 }
 
@@ -153,8 +170,8 @@ function InputNomor() {
     blastData.numbers = [];
     showHeader();
     console.log(chalk.white(`Pesan: "${chalk.cyan(blastData.message)}"`));
-    console.log(chalk.yellow('\nLangkah 2/2: PASTE NOMOR'));
-    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk kirim.'));
+    console.log(chalk.yellow('\nLangkah 2: PASTE NOMOR MEMBER'));
+    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk BURST!'));
     
     rl.on('line', (line) => {
         const input = line.trim();
@@ -174,28 +191,32 @@ function InputNomor() {
 async function Eksekusi() {
     if (blastData.numbers.length === 0) return MenuUtama();
     showHeader();
-    console.log(chalk.yellow(`\n🚀 Memulai Blast ke ${blastData.numbers.length} nomor...`));
     
-    for (let i = 0; i < blastData.numbers.length; i++) {
-        const num = blastData.numbers[i];
-        try {
-            // Cek koneksi sebelum kirim
-            if (!isConnected) {
-                console.log(chalk.red(`[!] Koneksi mati, nunggu nyambung lagi...`));
-                while (!isConnected) await delay(2000);
-            }
+    console.log(chalk.red.bold(`\n💥 SHOTGUN BURST MODE: ON 💥`));
+    console.log(chalk.yellow(`🚀 Menembak ${blastData.numbers.length} nomor secara SERENTAK...`));
 
-            await sock.sendMessage(num + '@s.whatsapp.net', { text: blastData.message });
-            console.log(chalk.green(`[${i+1}] ✅ ${num} Terkirim`));
-        } catch (e) {
-            console.log(chalk.red(`[${i+1}] ❌ ${num} Gagal: ${e.message}`));
-        }
-        // JEDA RANDOM (Penting biar gak dianggap spam)
-        const jeda = Math.floor(Math.random() * (5000 - 2000 + 1)) + 2000;
-        await delay(jeda); 
-    }
+    const pesan = blastData.message;
+    const targets = blastData.numbers;
 
-    console.log(chalk.bold('\nSelesai! Tekan Enter buat balik ke menu.'));
+    // SHOTGUN LOGIC (Parallel/Serentak 100%)
+    const tembakan = targets.map((num) => {
+        // Tembak tanpa 'await', biarkan semua peluru lepas barengan
+        return sock.sendMessage(num + '@s.whatsapp.net', { text: pesan })
+            .then(() => {
+                process.stdout.write(chalk.green('🎯 ')); 
+            })
+            .catch(() => {
+                process.stdout.write(chalk.red('💨 '));
+            });
+    });
+
+    // Jalankan semua tembakan sekaligus dalam milidetik
+    Promise.all(tembakan); 
+
+    console.log(chalk.bold.bgGreen.black('\n\n ✅ SHOTGUN BERHASIL DILEPAS! '));
+    console.log(chalk.white(`Semua ${targets.length} peluru sudah keluar dari script secara serentak.`));
+    
+    console.log(chalk.gray('\nTekan Enter buat balik ke menu utama.'));
     rl.once('line', () => MenuUtama());
 }
 
