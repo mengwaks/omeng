@@ -25,8 +25,8 @@ const showHeader = () => {
     if (isAuthenticating && !isConnected) return; 
     console.clear();
     console.log(chalk.green.bold('========================================='));
-    console.log(chalk.cyan.bold('    ⚡ OMENG ULTIMATE BLASTER V6.1 ⚡    '));
-    console.log(chalk.yellow('      Extreme Burst | Auto-Cleanup       '));
+    console.log(chalk.cyan.bold('    ⚡ OMENG GHOST SHOTGUN V7.0 ⚡    '));
+    console.log(chalk.yellow('      Instant Burst | Ghost Metadata      '));
     console.log(chalk.green.bold('========================================='));
 };
 
@@ -40,7 +40,7 @@ async function connectToWhatsApp() {
         connectTimeoutMs: 60000,
         defaultQueryTimeoutMs: 0,
         keepAliveIntervalMs: 10000,
-        generateHighQualityLinkPreview: false, // Dimatikan biar makin kenceng kirimnya
+        generateHighQualityLinkPreview: false, 
         syncFullHistory: false,
         markOnlineOnConnect: true
     });
@@ -170,7 +170,7 @@ function InputNomor() {
     showHeader();
     console.log(chalk.white(`Pesan: "${chalk.cyan(blastData.message)}"`));
     console.log(chalk.yellow('\nLangkah 2: PASTE NOMOR MEMBER'));
-    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk EXTREME BURST!'));
+    console.log(chalk.gray('Tempel nomor, lalu ketik "GAS" untuk GHOST BURST!'));
     
     rl.on('line', (line) => {
         const input = line.trim();
@@ -191,45 +191,45 @@ async function Eksekusi() {
     if (blastData.numbers.length === 0) return MenuUtama();
     showHeader();
     
-    // COUNTDOWN SEBELUM TEMBAK
-    console.log(chalk.red.bold(`\n💥 PERSIAPAN SHOTGUN...`));
+    console.log(chalk.red.bold(`\n💥 GHOST SHOTGUN BURST MODE 💥`));
     for (let i = 5; i > 0; i--) {
-        console.log(chalk.yellow(`   Menembak dalam: ${i}...`));
+        console.log(chalk.yellow(`   Sistem memompa peluru: ${i}...`));
         await delay(1000);
     }
 
-    console.log(chalk.red.bold(`\n🔥 DORRR! EXTREME BURST RELEASED! 🔥`));
+    console.log(chalk.red.bold(`\n🔥 FIRE! SEMUA PELURU DILEPAS SEKALIGUS! 🔥`));
 
+    const targets = blastData.numbers;
+    const pesanAsli = blastData.message;
     let sukses = 0;
     let gagal = 0;
-    const targets = blastData.numbers;
-    const pesan = blastData.message;
 
-    // TRUE BURST LOGIC
-    // Kita langsung push semua ke socket tanpa jeda proses logging di tengah
     const tembakan = targets.map((num) => {
-        return sock.sendMessage(num + '@s.whatsapp.net', { text: pesan })
-            .then(() => { 
-                sukses++; 
-                process.stdout.write(chalk.green('🎯')); 
-            })
-            .catch(() => { 
-                gagal++; 
-                process.stdout.write(chalk.red('💨')); 
-            });
+        const randomID = Math.random().toString(36).substring(7);
+        const pesanFinal = `${pesanAsli}\n\n_${randomID}_`; 
+
+        return sock.sendMessage(num + '@s.whatsapp.net', { text: pesanFinal })
+            .then(() => { sukses++; })
+            .catch(() => { gagal++; });
     });
 
-    // Jalankan semua sekaligus
-    await Promise.all(tembakan); 
+    // JEBRET!
+    Promise.all(tembakan); 
 
-    console.log(chalk.bold.bgGreen.black('\n\n ✅ BURST SELESAI! '));
+    console.log(chalk.green.bold(`\n[!] 100% Data sudah dipompa ke server!`));
+    console.log(chalk.white(`Sedang balapan dengan Satpam WhatsApp...`));
+
+    await delay(5000);
+
+    console.log(chalk.bold.bgGreen.black('\n\n ✅ HASIL TEMBAKAN SHOTGUN '));
     console.log(chalk.white(`==============================`));
-    console.log(chalk.green(` BERHASIL : ${sukses} Nomor`));
-    console.log(chalk.red(` GAGAL    : ${gagal} Nomor`));
+    console.log(chalk.green(` LOLOS GERBANG : ${sukses} Nomor`));
+    console.log(chalk.red(` TERTahan/GAGAL: ${gagal} Nomor`));
     console.log(chalk.white(`==============================`));
     
     console.log(chalk.gray('\nTekan Enter balik ke menu.'));
     rl.once('line', () => MenuUtama());
 }
 
+// Jalankan sistem
 connectToWhatsApp();
